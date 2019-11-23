@@ -28,7 +28,7 @@ from FriendlyArgumentParser import FriendlyArgumentParser
 from EncryptedFile import EncryptedFile
 
 parser = FriendlyArgumentParser()
-parser.add_argument("--gen-keyfile", action = "store_true", help = "Generate a derive key from a master input key.")
+parser.add_argument("--gen-keyfile", action = "store_true", help = "Generate a derive key from a keyboard-given master passphrase if the keyfile does not exist yet.")
 parser.add_argument("-k", "--keyfile", metavar = "filename", type = str, help = "Read key/kdf from JSON input file.")
 parser.add_argument("-c", "--cipher", choices = [ "AES256-GCM" ], default = "AES256-GCM", help = "Cipher to use for encryption, can be one of %(choices)s, defaults to %(default)s.")
 
@@ -53,16 +53,14 @@ if args.gen_keyfile:
 	if args.keyfile is None:
 		print("Need to specify a keyfile to be generated.", file = sys.stderr)
 		sys.exit(1)
-	if os.path.exists(args.keyfile):
-		print("Refusing to overwrite: %s" % (args.keyfile), file = sys.stderr)
-		sys.exit(1)
-	key = getpass.getpass("Master passphrase: ")
-	key = key.encode()
-	print("Deriving key...")
-	salt = bytes.fromhex("1f7fec216feb8d1a3a65bdb93ba7546a52493c49e67b61c72863bd288854fe96")
-	(meta, dkey) = EncryptedFile.kdf(kdf = { "name": "scrypt", "N": 2 ** 22, "p": 32, "r": 8, "dklen": 32 }, salt = salt, key = key)
-	with open(args.keyfile, "w") as f:
-		json.dump({ "key": dkey.hex() }, f)
+	if not os.path.exists(args.keyfile):
+		key = getpass.getpass("Master passphrase: ")
+		key = key.encode()
+		print("Deriving key...")
+		salt = bytes.fromhex("1f7fec216feb8d1a3a65bdb93ba7546a52493c49e67b61c72863bd288854fe96")
+		(meta, dkey) = EncryptedFile.kdf(kdf = { "name": "scrypt", "N": 2 ** 22, "p": 32, "r": 8, "dklen": 32 }, salt = salt, key = key)
+		with open(args.keyfile, "w") as f:
+			json.dump({ "key": dkey.hex() }, f)
 
 if args.keyfile is None:
 	key = getpass.getpass("Passphrase: ")
