@@ -51,6 +51,7 @@ def parse_kdf(text):
 
 parser = FriendlyArgumentParser()
 parser.add_argument("--gen-keyfile", action = "store_true", help = "Generate a derive key from a keyboard-given master passphrase if the keyfile does not exist yet.")
+parser.add_argument("-s", "--salt", metavar = "hexdata", type = bytes.fromhex, default = "", help = "Hex-encoded additional salt data that is used for initial key derivation. Empty by default.")
 parser.add_argument("-k", "--keyfile", metavar = "filename", type = str, help = "Read key/kdf from JSON input file.")
 parser.add_argument("-y", "--kdf", metavar = "kdf", type = parse_kdf, default = "scrypt-20-8-1", help = "When encrypting, specifies the KDF to use for key derivation, can be one of the form scrypt-N-r-p. Defaults to %(default)s.")
 parser.add_argument("-c", "--cipher", metavar = "cipher", choices = [ "AES256-GCM" ], default = "AES256-GCM", help = "Cipher to use for encryption, can be one of %(choices)s, defaults to %(default)s.")
@@ -79,11 +80,12 @@ if args.gen_keyfile:
 	if not os.path.exists(args.keyfile):
 		key = getpass.getpass("Master passphrase: ")
 		key = key.encode()
-		print("Deriving key...")
-		salt = bytes.fromhex("1f7fec216feb8d1a3a65bdb93ba7546a52493c49e67b61c72863bd288854fe96")
-		(meta, dkey) = EncryptedFile.kdf(kdf = { "name": "scrypt", "N": 2 ** 22, "r": 8, "p": 32, "dklen": 32 }, salt = salt, key = key)
+		print("Deriving key, this might take a long time...")
+		salt = bytes.fromhex("1f7fec216feb8d1a3a65bdb93ba7546a52493c49e67b61c72863bd288854fe96") + args.salt
+		(meta, dkey) = EncryptedFile.kdf(kdf = { "name": "scrypt", "N": 2 ** 22, "r": 8, "p": 4, "dklen": 32 }, salt = salt, key = key)
 		with open(args.keyfile, "w") as f:
 			json.dump({ "key": dkey.hex() }, f)
+		print("Initial key derivation finished.")
 
 if args.keyfile is None:
 	key = getpass.getpass("Passphrase: ")
@@ -94,7 +96,6 @@ else:
 	key = data["key"].encode("utf-8")
 
 if args.encrypt:
-	print(args)
 	with open(args.infile, "rb") as f:
 		plaintext = f.read()
 	encfile = EncryptedFile.encrypt(plaintext = plaintext, kdf = args.kdf, key = key, cipher = args.cipher)
