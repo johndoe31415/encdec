@@ -26,6 +26,7 @@ import json
 import getpass
 import re
 import argparse
+import time
 from FriendlyArgumentParser import FriendlyArgumentParser
 from EncryptedFile import EncryptedFile
 
@@ -82,10 +83,12 @@ if args.gen_keyfile:
 		key = key.encode()
 		print("Deriving key, this might take a long time...")
 		salt = bytes.fromhex("1f7fec216feb8d1a3a65bdb93ba7546a52493c49e67b61c72863bd288854fe96") + args.salt
+		t0 = time.time()
 		(meta, dkey) = EncryptedFile.kdf(kdf = { "name": "scrypt", "N": 2 ** 22, "r": 8, "p": 4, "dklen": 32 }, salt = salt, key = key)
+		t1 = time.time()
 		with open(args.keyfile, "w") as f:
 			json.dump({ "key": dkey.hex() }, f)
-		print("Initial key derivation finished.")
+		print("Initial key derivation finished after %.1f seconds." % (t1 - t0))
 
 if args.keyfile is None:
 	key = getpass.getpass("Passphrase: ")
