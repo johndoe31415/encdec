@@ -1,5 +1,5 @@
 #	encdec - Trivial encryption/decryption utility using strong KDF and ciphers
-#	Copyright (C) 2019-2019 Johannes Bauer
+#	Copyright (C) 2019-2020 Johannes Bauer
 #
 #	This file is part of encdec.
 #
@@ -21,6 +21,7 @@
 
 import os
 import json
+import time
 import struct
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -58,7 +59,7 @@ class EncryptedFile():
 			return cls(header, encrypted_payload)
 
 	@classmethod
-	def kdf(cls, kdf, key, salt = None, dklen = None):
+	def kdf(cls, kdf, key, salt = None, dklen = None, verbose = False):
 		assert(isinstance(key, bytes))
 		if salt is None:
 			salt = os.urandom(32)
@@ -69,6 +70,7 @@ class EncryptedFile():
 			"salt":		salt.hex(),
 			"dklen":	dklen,
 		}
+		t0 = time.time()
 		if kdf["name"] == "scrypt":
 			N = kdf.get("N", 1024 * 1024)
 			r = kdf.get("r", 8)
@@ -82,11 +84,14 @@ class EncryptedFile():
 			dkey = scrypt.derive(key)
 		else:
 			raise NotImplementedError(kdf["name"])
+		t1 = time.time()
+		if verbose:
+			print("Key derivation took %.3f sec" % (t1 - t0))
 		return (meta, dkey)
 
-	def decrypt(self, key):
+	def decrypt(self, key, verbose = False):
 		assert(isinstance(key, bytes))
-		(meta, dkey) = self.kdf(self._header["kdf"], key, salt = bytes.fromhex(self._header["kdf"]["salt"]))
+		(meta, dkey) = self.kdf(self._header["kdf"], key, salt = bytes.fromhex(self._header["kdf"]["salt"]), verbose = verbose)
 		if self._header["cipher"]["name"] == "AES256-GCM":
 			iv = bytes.fromhex(self._header["cipher"]["iv"])
 			decryptor = Cipher(algorithms.AES(dkey), modes.GCM(iv), backend = _backend).decryptor()
@@ -98,14 +103,14 @@ class EncryptedFile():
 		return plaintext
 
 	@classmethod
-	def encrypt(cls, plaintext, kdf, cipher, key):
+	def encrypt(cls, plaintext, kdf, cipher, key, verbose = False):
 		if cipher not in cls._DKLENS:
 			raise NotImplementedError(cipher)
 
 		kdf = dict(kdf)
 		kdf["dklen"] = cls._DKLENS[cipher]
 		if cipher == "AES256-GCM":
-			(meta, dkey) = cls.kdf(kdf, key)
+			(meta, dkey) = cls.kdf(kdf, key, verbose = verbose)
 			iv = os.urandom(16)
 			encryptor = Cipher(algorithms.AES(dkey), modes.GCM(iv), backend = _backend).encryptor()
 			ciphertext = encryptor.update(plaintext) + encryptor.finalize()

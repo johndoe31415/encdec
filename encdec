@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #	encdec - Trivial encryption/decryption utility using strong KDF and ciphers
-#	Copyright (C) 2019-2019 Johannes Bauer
+#	Copyright (C) 2019-2020 Johannes Bauer
 #
 #	This file is part of encdec.
 #
@@ -54,7 +54,7 @@ parser = FriendlyArgumentParser()
 parser.add_argument("--gen-keyfile", action = "store_true", help = "Generate a derive key from a keyboard-given master passphrase if the keyfile does not exist yet.")
 parser.add_argument("-s", "--salt", metavar = "hexdata", type = bytes.fromhex, default = "", help = "Hex-encoded additional salt data that is used for initial key derivation. Empty by default.")
 parser.add_argument("-k", "--keyfile", metavar = "filename", type = str, help = "Read key/kdf from JSON input file.")
-parser.add_argument("-y", "--kdf", metavar = "kdf", type = parse_kdf, default = "scrypt-20-8-1", help = "When encrypting, specifies the KDF to use for key derivation, can be one of the form scrypt-N-r-p. Defaults to %(default)s.")
+parser.add_argument("-y", "--kdf", metavar = "kdf", type = parse_kdf, default = "scrypt-16-8-1", help = "When encrypting, specifies the KDF to use for key derivation, can be one of the form scrypt-N-r-p. Defaults to %(default)s.")
 parser.add_argument("-c", "--cipher", metavar = "cipher", choices = [ "AES256-GCM" ], default = "AES256-GCM", help = "Cipher to use for encryption, can be one of %(choices)s, defaults to %(default)s.")
 
 group = parser.add_mutually_exclusive_group()
@@ -62,6 +62,7 @@ group.add_argument("-e", "--encrypt", action = "store_true", help = "Encrypt inp
 group.add_argument("-d", "--decrypt", action = "store_true", help = "Decrypt input file.")
 
 parser.add_argument("-f", "--force", action = "store_true", help = "Overwrite output file if it already exists.")
+parser.add_argument("-v", "--verbose", action = "count", default = 0, help = "Increase output verbosity.")
 parser.add_argument("infile", metavar = "infile", type = str, help = "Input file")
 parser.add_argument("outfile", metavar = "outfile", type = str, help = "Output file")
 args = parser.parse_args(sys.argv[1:])
@@ -101,10 +102,10 @@ else:
 if args.encrypt:
 	with open(args.infile, "rb") as f:
 		plaintext = f.read()
-	encfile = EncryptedFile.encrypt(plaintext = plaintext, kdf = args.kdf, key = key, cipher = args.cipher)
+	encfile = EncryptedFile.encrypt(plaintext = plaintext, kdf = args.kdf, key = key, cipher = args.cipher, verbose = (args.verbose >= 1))
 	encfile.write(args.outfile)
 elif args.decrypt:
 	encfile = EncryptedFile.read(args.infile)
-	plaintext = encfile.decrypt(key)
+	plaintext = encfile.decrypt(key, verbose = (args.verbose >= 1))
 	with open(args.outfile, "wb") as f:
 		f.write(plaintext)
