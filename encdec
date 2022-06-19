@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 #	encdec - Trivial encryption/decryption utility using strong KDF and ciphers
-#	Copyright (C) 2019-2020 Johannes Bauer
+#	Copyright (C) 2019-2022 Johannes Bauer
 #
 #	This file is part of encdec.
 #
@@ -80,7 +80,13 @@ if args.gen_keyfile:
 		print("Need to specify a keyfile to be generated.", file = sys.stderr)
 		sys.exit(1)
 	if not os.path.exists(args.keyfile):
-		key = getpass.getpass("Master passphrase: ")
+		while True:
+			key = getpass.getpass("Master passphrase: ")
+			key_repeat = getpass.getpass("Repeat master passphrase: ")
+			if key != key_repeat:
+				print("Passphrases do not match.")
+			else:
+				break
 		key = key.encode()
 		print("Deriving key, this might take a long time...")
 		salt = bytes.fromhex("1f7fec216feb8d1a3a65bdb93ba7546a52493c49e67b61c72863bd288854fe96") + args.salt
